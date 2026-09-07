@@ -1,0 +1,6 @@
+{
+  "name": "TRACE ID",
+  "description": "Real-world image internet trace and provenance tool with OpenCV server-side face detection and visual search provider architecture.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
