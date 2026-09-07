@@ -66,3 +66,39 @@ pre {
 .animate-scanline {
   animation: scanline 2.2s ease-in-out infinite alternate;
 }
+
+/* Cute Realistic 3D Cartoon Typography for #Hacker house Goa */
+.cartoon-font {
+  font-family: 'Titan One', 'Fredoka', cursive, sans-serif !important;
+}
+
+.cartoon-text-realistic {
+  font-family: 'Titan One', 'Fredoka', cursive, sans-serif !important;
+  color: #ffe600;
+  letter-spacing: 0.05em;
+  -webkit-text-stroke: 1.5px #191c24;
+  text-shadow:
+    0 1px 0 #ffd000,
+    0 2px 0 #ff9900,
+    0 3px 0 #ff6600,
+    0 4px 0 #d9381e,
+    0 5px 0 #8b1e10,
+    0 6px 2px rgba(0, 0, 0, 0.4),
+    0 10px 14px rgba(0, 0, 0, 0.5);
+  display: inline-block;
+  transform: translateZ(0);
+}
+
+@keyframes cartoon-gentle-bob {
+  0%, 100% {
+    transform: translateY(0px) rotate(-1.5deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(1deg);
+  }
+}
+
+.animate-cartoon-bob {
+  animation: cartoon-gentle-bob 3.5s ease-in-out infinite;
+}
+

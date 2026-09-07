@@ -8,7 +8,6 @@ import {
   Globe, 
   Info,
   ArrowRight,
-  Crosshair,
   Lock
 } from "lucide-react";
 import { Header } from "./components/Header";
@@ -210,7 +209,7 @@ export default function App() {
       console.error("Search error:", err);
       setSearchResponse({
         status: "error",
-        provider: config?.configuredProvider || "google",
+        provider: config?.configuredProvider || "serpapi",
         searchedAt: new Date().toISOString(),
         providersSearched: [],
         totalMatches: 0,
@@ -293,11 +292,21 @@ export default function App() {
         {/* VIEW: HOME (UPLOAD / CAPTURE) */}
         {viewState === "home" && (
           <div className="max-w-4xl mx-auto w-full px-4 py-8 sm:py-16 text-center">
-            {/* Top Coordinate and Status badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-800/80 text-[11px] font-mono-tech text-emerald-400 mb-6 tracking-wider uppercase">
-              <Crosshair className="w-3.5 h-3.5 text-yellow-400" />
-              <span>IMAGE INTERNET PROVENANCE ENGINE</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            {/* Cute Realistic Cartoon Sticker: #Hacker house Goa */}
+            <div className="mb-6 inline-block animate-cartoon-bob">
+              <div className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-400 p-[2.5px] shadow-[0_12px_28px_-4px_rgba(255,170,0,0.4),0_4px_10px_rgba(0,0,0,0.6)] transform -rotate-2 hover:rotate-0 hover:scale-105 transition-all duration-300 select-none cursor-default">
+                <div className="bg-[#051c14] px-4 py-1.5 rounded-[13px] flex items-center gap-2 sm:gap-3 border border-white/20">
+                  <span className="text-xl sm:text-2xl filter drop-shadow-sm select-none" role="img" aria-label="Palm Tree">
+                    🌴
+                  </span>
+                  <span className="cartoon-text-realistic text-xl sm:text-3xl font-black tracking-wide select-none">
+                    #Hacker house Goa
+                  </span>
+                  <span className="text-lg sm:text-xl filter drop-shadow select-none" role="img" aria-label="Sparkles">
+                    ✨
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Dramatic Editorial Headline */}
@@ -396,7 +405,7 @@ export default function App() {
         {viewState === "processing" && (
           <ProcessingState
             currentStep={processingStep}
-            providerName={config?.configuredProvider || "Google Cloud Visual Web Detection"}
+            providerName="SerpApi / Google Lens"
             imageHash={analysis?.imageHash}
             searchMode={searchTargetMode}
           />

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ExternalLink, Globe, CheckCircle, ShieldCheck, Image as ImageIcon, Layers, Filter } from "lucide-react";
+import { ExternalLink, Globe, Filter } from "lucide-react";
 import { SearchResponse, MatchType } from "../types";
 
 interface ResultsViewProps {
@@ -74,27 +74,6 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
           >
             START NEW TRACE
           </button>
-        </div>
-
-        {/* Real Provider Execution Audit Banner */}
-        <div className="mt-6 p-3.5 bg-[#05140f] border border-emerald-800/80 rounded-lg flex flex-wrap items-center justify-between gap-4 text-xs">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span className="text-emerald-300/80">AUTHENTIC PROVIDER EXECUTION:</span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            {searchResponse.providersSearched.map((p, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-950 border border-emerald-800/70 text-[11px]"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span className="text-white font-semibold">{p.name}</span>
-                <span className="text-emerald-400/70">({p.resultsCount} hits, {p.durationMs}ms)</span>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Filter Bar */}

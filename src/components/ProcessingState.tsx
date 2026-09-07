@@ -21,7 +21,7 @@ const STEPS = [
 
 export const ProcessingState: React.FC<ProcessingStateProps> = ({
   currentStep,
-  providerName = "Google Cloud Visual Web Detection",
+  providerName = "SerpApi / Google Lens",
   imageHash,
   searchMode,
 }) => {

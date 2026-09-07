@@ -1,7 +1,5 @@
 import { SearchResult, SearchResponse, ProviderConfigStatus } from "../types.js";
 import { SearchProvider } from "../providers/base.js";
-import { GoogleVisualSearchProvider } from "../providers/google_provider.js";
-import { TinEyeSearchProvider } from "../providers/tineye_provider.js";
 import { SerpApiLensProvider } from "../providers/serpapi_provider.js";
 
 // In-memory cache by image SHA-256 hash with 10-minute TTL
@@ -15,91 +13,35 @@ export class SearchService {
   private providers: Map<string, SearchProvider> = new Map();
 
   constructor() {
-    const google = new GoogleVisualSearchProvider();
-    const tineye = new TinEyeSearchProvider();
     const serpapi = new SerpApiLensProvider();
-
-    this.providers.set("google", google);
-    this.providers.set("tineye", tineye);
+    // TRACE ID uses SerpApi / Google Lens as the sole production visual-search provider
     this.providers.set("serpapi", serpapi);
-
-    // Aliases to prevent routing mismatches
     this.providers.set("serpapi_lens", serpapi);
     this.providers.set("google_lens", serpapi);
-    this.providers.set("google_vision", google);
   }
 
-  resolveProviderMode(): "serpapi" | "google" | "tineye" | "multi" {
-    const raw = (process.env.SEARCH_PROVIDER || "").toLowerCase().trim();
-    if (raw === "serpapi" || raw === "serpapi_lens" || raw === "google_lens") {
-      return "serpapi";
-    }
-    if (raw === "google" || raw === "google_vision") {
-      return "google";
-    }
-    if (raw === "tineye") {
-      return "tineye";
-    }
-    if (raw === "multi") {
-      return "multi";
-    }
-    // Default to serpapi if SERPAPI_API_KEY is present, or default to serpapi
-    if (process.env.SERPAPI_API_KEY) {
-      return "serpapi";
-    }
+  resolveProviderMode(): "serpapi" {
+    // TRACE ID is permanently locked to SerpApi / Google Lens
     return "serpapi";
   }
 
   getProviderConfigStatus(): ProviderConfigStatus {
-    const mode = this.resolveProviderMode();
     const serpapi = this.providers.get("serpapi");
-    const google = this.providers.get("google");
-    const tineye = this.providers.get("tineye");
-
     const serpApiConfigured = serpapi?.isConfigured() || false;
-    const googleConfigured = google?.isConfigured() || false;
-    const tineyeConfigured = tineye?.isConfigured() || false;
     const gemini = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0);
 
     const searchTimeoutSeconds = parseInt(process.env.SEARCH_TIMEOUT_SECONDS || "30", 10);
-    const maxResults = parseInt(process.env.MAX_RESULTS || "50", 10);
-
-    let activeProviderDescription = "SerpApi / Google Lens";
-    let serpApiKeyStatus = serpApiConfigured ? "configured" : "missing";
-    let googleVisionStatus = "disabled";
-    let tineyeStatus = "disabled";
-
-    if (mode === "serpapi") {
-      activeProviderDescription = "SerpApi / Google Lens";
-      serpApiKeyStatus = serpApiConfigured ? "configured" : "missing";
-      googleVisionStatus = "disabled";
-      tineyeStatus = "disabled";
-    } else if (mode === "google") {
-      activeProviderDescription = "Google Cloud Vision";
-      googleVisionStatus = googleConfigured ? "configured" : "missing";
-      serpApiKeyStatus = "disabled";
-      tineyeStatus = "disabled";
-    } else if (mode === "tineye") {
-      activeProviderDescription = "TinEye Commercial API";
-      tineyeStatus = tineyeConfigured ? "configured" : "missing";
-      serpApiKeyStatus = "disabled";
-      googleVisionStatus = "disabled";
-    } else if (mode === "multi") {
-      activeProviderDescription = "Multi-Engine (Google + TinEye + SerpApi)";
-      serpApiKeyStatus = serpApiConfigured ? "configured" : "disabled";
-      googleVisionStatus = googleConfigured ? "configured" : "disabled";
-      tineyeStatus = tineyeConfigured ? "configured" : "disabled";
-    }
+    const maxResults = parseInt(process.env.MAX_RESULTS || "30", 10);
 
     return {
-      configuredProvider: mode,
-      activeProviderDescription,
-      serpApiKeyStatus,
-      googleVisionStatus,
-      tineyeStatus,
-      googleConfigured: mode === "google" || mode === "multi" ? googleConfigured : false,
-      tineyeConfigured: mode === "tineye" || mode === "multi" ? tineyeConfigured : false,
-      serpApiConfigured: mode === "serpapi" || mode === "multi" ? serpApiConfigured : false,
+      configuredProvider: "serpapi",
+      activeProviderDescription: "SERPAPI / GOOGLE LENS",
+      serpApiKeyStatus: serpApiConfigured ? "CONFIGURED" : "MISSING",
+      googleVisionStatus: "DISABLED",
+      tineyeStatus: "DISABLED",
+      googleConfigured: false,
+      tineyeConfigured: false,
+      serpApiConfigured,
       geminiConfigured: gemini,
       searchTimeoutSeconds,
       maxResults,
@@ -141,113 +83,65 @@ export class SearchService {
       };
     }
 
-    const providerMode = this.resolveProviderMode();
     const timeoutSeconds = parseInt(process.env.SEARCH_TIMEOUT_SECONDS || "30", 10);
-    const maxResults = parseInt(process.env.MAX_RESULTS || "50", 10);
+    const maxResults = parseInt(process.env.MAX_RESULTS || "30", 10);
 
-    // Identify which providers to run
-    let providersToRun: SearchProvider[] = [];
-
-    if (providerMode === "multi") {
-      providersToRun = Array.from(this.providers.values()).filter((p) => p.isConfigured());
-      if (providersToRun.length === 0) {
-        const serpapi = this.providers.get("serpapi");
-        if (serpapi) providersToRun.push(serpapi);
-      }
-    } else {
-      const selected = this.providers.get(providerMode);
-      if (selected) {
-        providersToRun.push(selected);
-      } else {
-        return {
-          status: "error",
-          provider: providerMode,
-          searchedAt: new Date().toISOString(),
-          providersSearched: [],
-          totalMatches: 0,
-          results: [],
-          message: `Unknown search provider '${providerMode}'. Configured provider must be 'serpapi'.`,
-        };
-      }
-    }
-
-    // Check configuration of providers to run
-    const anyConfigured = providersToRun.some((p) => p.isConfigured());
-    if (!anyConfigured) {
-      const requiredKey = providerMode === "serpapi" ? "SERPAPI_API_KEY" : providerMode === "google" ? "GOOGLE_CLOUD_API_KEY" : "TINEYE_API_KEY";
+    const serpapi = this.providers.get("serpapi")!;
+    if (!serpapi.isConfigured()) {
       return {
         status: "provider_not_configured",
-        provider: providerMode,
+        provider: "serpapi",
         searchedAt: new Date().toISOString(),
-        providersSearched: providersToRun.map((p) => ({
-          name: p.displayName,
-          status: "not_configured",
-          resultsCount: 0,
-          durationMs: 0,
-          error: `${requiredKey} is not configured`,
-        })),
+        providersSearched: [
+          {
+            name: "SerpApi / Google Lens",
+            status: "not_configured",
+            resultsCount: 0,
+            durationMs: 0,
+            error: "SERPAPI_API_KEY is not configured in the server environment.",
+          },
+        ],
         totalMatches: 0,
         results: [],
-        message: `SEARCH PROVIDER NOT CONFIGURED: ${requiredKey} is required in the environment for ${providerMode}.`,
+        message: "SEARCH PROVIDER NOT CONFIGURED: SERPAPI_API_KEY is required in the server environment.",
       };
     }
 
     const providersSearchedStatus: SearchResponse["providersSearched"] = [];
     const allResults: SearchResult[] = [];
+    const startTime = Date.now();
 
-    // Run providers
-    await Promise.all(
-      providersToRun.map(async (provider) => {
-        const startTime = Date.now();
-        if (!provider.isConfigured()) {
-          providersSearchedStatus.push({
-            name: provider.displayName,
-            status: "not_configured",
-            resultsCount: 0,
-            durationMs: 0,
-            error: "Not configured",
-          });
-          return;
-        }
+    try {
+      const results = await serpapi.search(imageBuffer, mimeType, {
+        timeoutSeconds,
+        maxResults,
+      });
+      const duration = Date.now() - startTime;
+      providersSearchedStatus.push({
+        name: serpapi.displayName,
+        status: results.length > 0 ? "success" : "no_results",
+        resultsCount: results.length,
+        durationMs: duration,
+      });
+      allResults.push(...results);
+    } catch (err: any) {
+      const duration = Date.now() - startTime;
+      providersSearchedStatus.push({
+        name: serpapi.displayName,
+        status: "error",
+        resultsCount: 0,
+        durationMs: duration,
+        error: err.message,
+      });
 
-        try {
-          const results = await provider.search(imageBuffer, mimeType, {
-            timeoutSeconds,
-            maxResults,
-          });
-          const duration = Date.now() - startTime;
-          providersSearchedStatus.push({
-            name: provider.displayName,
-            status: results.length > 0 ? "success" : "no_results",
-            resultsCount: results.length,
-            durationMs: duration,
-          });
-          allResults.push(...results);
-        } catch (err: any) {
-          const duration = Date.now() - startTime;
-          providersSearchedStatus.push({
-            name: provider.displayName,
-            status: "error",
-            resultsCount: 0,
-            durationMs: duration,
-            error: err.message,
-          });
-        }
-      })
-    );
-
-    // If all executed providers resulted in errors, return error response with the actual error
-    const hasSuccess = providersSearchedStatus.some((p) => p.status === "success" || p.status === "no_results");
-    if (!hasSuccess && providersSearchedStatus.length > 0) {
-      const firstError = providersSearchedStatus.find((p) => p.error)?.error || "Provider search failed.";
       return {
         status: "error",
-        provider: providerMode,
+        provider: "serpapi",
         searchedAt: new Date().toISOString(),
         providersSearched: providersSearchedStatus,
         totalMatches: 0,
         results: [],
-        message: firstError,
+        message: err.message || "SerpApi search request failed.",
       };
     }
 
@@ -258,7 +152,6 @@ export class SearchService {
       if (!seenUrls.has(norm)) {
         seenUrls.set(norm, res);
       } else {
-        // If existing is related but new is exact, upgrade it
         const existing = seenUrls.get(norm)!;
         if (res.matchType === "exact" && existing.matchType !== "exact") {
           seenUrls.set(norm, res);
@@ -268,10 +161,10 @@ export class SearchService {
 
     const deduplicated = Array.from(seenUrls.values());
 
-    // Relevance Ranking:
+    // Priority order:
     // 1. matchType: 'exact' (weight 3), 'near' (weight 2), 'related' (weight 1)
-    // 2. similarityScore if present (higher score first)
-    // 3. has title / metadata
+    // 2. similarityScore if present (higher first)
+    // 3. title/metadata presence
     deduplicated.sort((a, b) => {
       const rank = (m: string) => (m === "exact" ? 3 : m === "near" ? 2 : 1);
       const rankDiff = rank(b.matchType) - rank(a.matchType);
@@ -292,19 +185,13 @@ export class SearchService {
     let message: string | undefined;
 
     if (finalResults.length === 0) {
-      const hasErrors = providersSearchedStatus.some((p) => p.status === "error");
-      if (hasErrors && providersSearchedStatus.every((p) => p.status === "error" || p.status === "not_configured")) {
-        finalStatus = "error";
-        message = providersSearchedStatus.find((p) => p.error)?.error || "Provider search failed.";
-      } else {
-        finalStatus = "no_results";
-        message = "The configured visual-search provider did not return publicly indexed matches for this image.";
-      }
+      finalStatus = "no_results";
+      message = "The configured visual-search provider did not return publicly indexed matches for this image.";
     }
 
     const response: SearchResponse = {
       status: finalStatus,
-      provider: providerMode,
+      provider: "serpapi",
       searchedAt: new Date().toISOString(),
       providersSearched: providersSearchedStatus,
       totalMatches: finalResults.length,
@@ -323,3 +210,4 @@ export class SearchService {
     return response;
   }
 }
+

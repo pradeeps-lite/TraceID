@@ -1,5 +1,4 @@
 import React from "react";
-import { RefreshCw } from "lucide-react";
 import { ProviderConfigStatus } from "../types";
 
 interface HeaderProps {
@@ -8,7 +7,7 @@ interface HeaderProps {
   isSearching: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ config, onReset, isSearching }) => {
+export const Header: React.FC<HeaderProps> = ({ onReset }) => {
   return (
     <header className="border-b border-emerald-900/60 bg-[#05140f]/90 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-8 py-3.5 transition-all">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
@@ -28,19 +27,6 @@ export const Header: React.FC<HeaderProps> = ({ config, onReset, isSearching }) 
               </span>
             </div>
           </div>
-        </div>
-
-        {/* Action Button */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onReset}
-            disabled={isSearching}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-mono-tech uppercase tracking-wider text-emerald-300 hover:text-yellow-400 hover:bg-emerald-900/40 border border-emerald-800/50 transition-colors disabled:opacity-40"
-            title="Reset to New Image"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">NEW TRACE</span>
-          </button>
         </div>
       </div>
     </header>

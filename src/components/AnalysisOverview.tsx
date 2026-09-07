@@ -12,7 +12,8 @@ import {
   AlertCircle,
   Cpu,
   Layers,
-  Maximize2
+  Maximize2,
+  Sparkles
 } from "lucide-react";
 import { AnalyzeResponse, FaceRegion } from "../types";
 import { FaceTrackerOverlay } from "./FaceTrackerOverlay";

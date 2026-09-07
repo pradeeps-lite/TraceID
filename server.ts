@@ -122,7 +122,7 @@ async function startServer() {
   app.post(
     "/api/analyze",
     (req, res, next) => {
-      upload.single("image")(req, res, (err: any) => {
+      upload.single("image")(req as any, res as any, (err: any) => {
         if (err) {
           if (err.code === "LIMIT_FILE_SIZE") {
             return res.status(413).json({
@@ -271,12 +271,16 @@ async function startServer() {
     console.log(`TRACE ID Server running on http://0.0.0.0:${PORT}`);
     const diag = searchService.getProviderConfigStatus();
     console.log("============================================================");
-    console.log("TRACE ID — PROVIDER DIAGNOSTIC");
-    console.log("============================================================");
-    console.log(`Active provider: ${diag.activeProviderDescription}`);
-    console.log(`SerpApi key: ${diag.serpApiKeyStatus}`);
-    console.log(`Google Vision: ${diag.googleVisionStatus}`);
-    console.log(`TinEye: ${diag.tineyeStatus}`);
+    console.log("TRACE ID Provider:");
+    console.log("SERPAPI / GOOGLE LENS");
+    console.log("SERPAPI_API_KEY:");
+    console.log(diag.serpApiKeyStatus);
+    console.log("Google Cloud Vision:");
+    console.log("DISABLED");
+    console.log("TinEye:");
+    console.log("DISABLED");
+    console.log("MAX RESULTS:");
+    console.log(diag.maxResults);
     console.log("============================================================");
   });
 }

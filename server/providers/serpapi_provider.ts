@@ -124,8 +124,25 @@ export class SerpApiLensProvider extends SearchProvider {
       }
 
       const searchData: any = await searchRes.json();
+      const isAuthOrRateLimitError = (errString: string) => {
+        const lower = String(errString || "").toLowerCase();
+        return (
+          lower.includes("invalid api key") ||
+          lower.includes("api key is invalid") ||
+          lower.includes("missing api key") ||
+          lower.includes("unauthorized") ||
+          lower.includes("account has run out") ||
+          lower.includes("quota") ||
+          lower.includes("rate limit")
+        );
+      };
+
       if (searchData?.error) {
-        throw new Error(`SERPAPI_LENS_ERROR: ${searchData.error}`);
+        if (isAuthOrRateLimitError(searchData.error)) {
+          throw new Error(`PROVIDER_AUTH_ERROR: SerpApi error: ${searchData.error}`);
+        }
+        // An empty result or "Google haven't returned any results" is NOT an authentication error
+        console.log(`[SerpApi] Search notice for image_id ${imageId}: ${searchData.error}`);
       }
 
       // Step 4: Collect exact_matches, visual_matches, and related/other available results
@@ -175,34 +192,80 @@ export class SerpApiLensProvider extends SearchProvider {
       };
 
       // 1. exact_matches
-      if (Array.isArray(searchData.exact_matches)) {
-        for (let i = 0; i < searchData.exact_matches.length; i++) {
-          addMatch(searchData.exact_matches[i], "exact", 1.0 - i * 0.005);
-        }
+      const exactMatches = Array.isArray(searchData?.exact_matches) ? searchData.exact_matches : [];
+      for (let i = 0; i < exactMatches.length; i++) {
+        addMatch(exactMatches[i], "exact", 1.0 - i * 0.005);
       }
 
-      // 2. visual_matches
-      if (Array.isArray(searchData.visual_matches)) {
-        for (let i = 0; i < searchData.visual_matches.length; i++) {
-          const score = Math.max(0.70, 0.95 - i * 0.008);
-          addMatch(searchData.visual_matches[i], "near", score);
+      // 2. visual_matches from initial response (if any)
+      const initialVisual = Array.isArray(searchData?.visual_matches) ? searchData.visual_matches : [];
+      for (let i = 0; i < initialVisual.length; i++) {
+        const score = Math.max(0.70, 0.95 - i * 0.008);
+        addMatch(initialVisual[i], "near", score);
+      }
+
+      // Requirement 8 & 9: If exact_matches contains zero results, ALWAYS continue to type=visual_matches
+      // using the SAME image_id without uploading again
+      if (exactMatches.length === 0) {
+        try {
+          const visualLensUrl = new URL("https://serpapi.com/search");
+          visualLensUrl.searchParams.set("engine", "google_lens");
+          visualLensUrl.searchParams.set("image_id", imageId);
+          visualLensUrl.searchParams.set("type", "visual_matches");
+          visualLensUrl.searchParams.set("api_key", apiKey);
+          visualLensUrl.searchParams.set("hl", "en");
+
+          const visualRes = await fetch(visualLensUrl.toString(), {
+            signal: controller.signal,
+          });
+
+          if (visualRes.ok) {
+            const visualData: any = await visualRes.json();
+            if (visualData?.error && isAuthOrRateLimitError(visualData.error)) {
+              throw new Error(`PROVIDER_AUTH_ERROR: SerpApi error: ${visualData.error}`);
+            }
+            if (Array.isArray(visualData?.visual_matches)) {
+              for (let i = 0; i < visualData.visual_matches.length; i++) {
+                const score = Math.max(0.70, 0.95 - i * 0.008);
+                addMatch(visualData.visual_matches[i], "near", score);
+              }
+            }
+          } else if (visualRes.status === 401 || visualRes.status === 403) {
+            throw new Error("PROVIDER_AUTH_ERROR: SerpApi API key invalid or unauthorized.");
+          } else if (visualRes.status === 429) {
+            throw new Error("PROVIDER_RATE_LIMIT: SerpApi search quota reached.");
+          }
+        } catch (visErr: any) {
+          if (visErr.message?.startsWith("PROVIDER_AUTH_ERROR") || visErr.message?.startsWith("PROVIDER_RATE_LIMIT")) {
+            throw visErr;
+          }
+          console.warn("[SerpApi] type=visual_matches secondary fetch notice:", visErr.message);
         }
       }
 
       // 3. organic_results and related results
-      if (Array.isArray(searchData.organic_results)) {
+      if (Array.isArray(searchData?.organic_results)) {
         for (const item of searchData.organic_results) {
           addMatch(item, "related", 0.65);
         }
       }
 
-      if (Array.isArray(searchData.reverse_image_search)) {
+      if (Array.isArray(searchData?.reverse_image_search)) {
         for (const item of searchData.reverse_image_search) {
           addMatch(item, "related", 0.60);
         }
       }
 
-      return results;
+      // Priority sort: exact > near (visual matches) > related, then similarityScore
+      results.sort((a, b) => {
+        const rank = (m: string) => (m === "exact" ? 3 : m === "near" ? 2 : 1);
+        const rankDiff = rank(b.matchType) - rank(a.matchType);
+        if (rankDiff !== 0) return rankDiff;
+        return (b.similarityScore || 0) - (a.similarityScore || 0);
+      });
+
+      const maxResults = options?.maxResults || 30;
+      return results.slice(0, maxResults);
     } finally {
       clearTimeout(timeoutHandle);
     }
